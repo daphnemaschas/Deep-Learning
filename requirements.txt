@@ -1,0 +1,20 @@
+# Data processing
+pandas
+numpy
+
+# Data visualization
+matplotlib
+seaborn
+
+# Machine learning
+scikit-learn
+
+# Deep learning
+pytorch
+torchvision
+
+# Notebook support
+ipykernel
+
+# Utilitary libraries
+tqdm
