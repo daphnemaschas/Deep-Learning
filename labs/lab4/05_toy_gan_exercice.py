@@ -27,11 +27,14 @@ def f_data(N, model='circle'):
   eps = np.random.randn(N) # Gaussian noise
   if model == 'circle':
     t = np.random.rand(N) # Uniform
-    return np.column_stack((TODO,TODO))
+    x = 3*np.cos(2*np.pi*t) + eps
+    y = 3*np.sin(2*np.pi*t) + eps
+    return np.column_stack((x,y))
 
   z1 = 3*np.random.randn(N) # Gaussian
   if model == 'simple_sin':
-    return np.column_stack((TODO,TODO))
+    y = np.sin(6*np.pi*z1)
+    return np.column_stack((z1,y))
   elif model == 'double_sin':
     z2 = 3*np.random.randn(N) # Gaussian (2)
     return np.column_stack((z1+0.1*eps,np.cos(z1)+np.tanh(z2)+0.1*eps))
@@ -39,9 +42,9 @@ def f_data(N, model='circle'):
 class Generator(nn.Module):
   def __init__(self, sz_latent,sz_hidden):
     super(Generator, self).__init__()
-    self.fc1 = nn.Linear(TODO,TODO)
-    self.fc2 = nn.Linear(TODO,TODO)
-    self.fout = nn.Linear(TODO,TODO)
+    self.fc1 = nn.Linear(sz_latent,sz_hidden)
+    self.fc2 = nn.Linear(sz_hidden,sz_hidden)
+    self.fout = nn.Linear(sz_hidden,2)
 
   def forward(self, x):
     x = F.relu(self.fc1(x))
@@ -52,15 +55,15 @@ class Generator(nn.Module):
 class Discriminator(nn.Module):
   def __init__(self, sz):
     super(Discriminator, self).__init__()
-    self.fc1 = nn.Linear(TODO,sz)
-    self.fc2 = nn.Linear(sz,TODO)
-    self.fc3 = nn.Linear(int(sz/2),TODO)
-    self.fout = nn.Linear(int(sz/4),TODO)
+    self.fc1 = nn.Linear(2,sz)
+    self.fc2 = nn.Linear(sz,int(sz/2))
+    self.fc3 = nn.Linear(int(sz/2),int(sz/4))
+    self.fout = nn.Linear(int(sz/4),1) # Dim 1 pr avoir une proba dans [0,1]
   def forward(self, x):
     x = F.relu(self.fc1(x))
     x = F.relu(self.fc2(x))
     x = F.relu(self.fc3(x))
-    x = TODO # decision (proba)
+    x = torch.sigmoid(self.fout(x)) # decision (proba): sigmoid pour avoir une proba
     return x
 
 def extract(v):
@@ -72,8 +75,8 @@ def main(argv):
   D = Discriminator(32).to(device)
 
   criterion = nn.BCELoss()
-  d_optimizer = optim.SGD(TODO, lr=1e-3, momentum=0.8)
-  g_optimizer = optim.SGD(TODO, lr=1e-3, momentum=0.8)
+  d_optimizer = optim.SGD(D.parameters(), lr=1e-3, momentum=0.8)
+  g_optimizer = optim.SGD(G.parameters(), lr=1e-3, momentum=0.8)
   
   batch_size = 32
 
@@ -84,14 +87,14 @@ def main(argv):
       # train D on real data
       d_real_data = (torch.FloatTensor(f_data(batch_size,FLAGS.model))).to(device)
       d_real_decision = D(d_real_data)
-      d_real_error = criterion(d_real_decision, torch.TODO([batch_size,1])).to(device)
+      d_real_error = criterion(d_real_decision, torch.ones([batch_size,1])).to(device)
       d_real_error.backward() # compute/store gradients, but don't change params
 
       # train D on fake data
       d_gen_seed = (torch.FloatTensor( torch.randn(batch_size,latent_dim ) )).to(device)  # TODO rand ou randn ?
       d_fake_data = G( d_gen_seed ).detach()  # detach to avoid training G on these labels
       d_fake_decision = D(d_fake_data)
-      d_fake_error = criterion(d_fake_decision, torch.TODO([batch_size,1]).to(device))
+      d_fake_error = criterion(d_fake_decision, torch.zeros([batch_size,1]).to(device))
       d_fake_error.backward()
       d_optimizer.step()     # Only optimizes D's parameters; changes based on stored gradients from backward()
 
@@ -103,7 +106,7 @@ def main(argv):
       g_gen_seed = (torch.FloatTensor( torch.randn(batch_size,latent_dim ))).to(device)
       g_fake_data = G( g_gen_seed )
       dg_fake_decision = D(g_fake_data)
-      g_error = criterion(dg_fake_decision, torch.TODO([batch_size,1]).to(device))  # Train G to pretend it's genuine
+      g_error = criterion(dg_fake_decision, torch.ones([batch_size,1]).to(device))  # Train G to pretend it's genuine
 
       g_error.backward()
       g_optimizer.step()  # Only optimizes G's parameters
